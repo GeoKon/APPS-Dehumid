@@ -1,0 +1,332 @@
+<!--
+	Invokes the 'fetch1.php' to read the 'realtm.txt' file which contains a JSON string
+	with the sensor data.
+	
+	Can be run either from the browser pointing at URL http://site.com/myp/extract1.html
+	for from the file in simulation mode.
+-->
+<html>
+<head>
+<link rel="stylesheet" href="./myStyles.css">
+<script src="./chartmin.js"></script>
+<!-- <script src="chartmin.js"></script> -->
+
+<script>
+
+	var simul = 0;
+	var debug = true;		// displays received JON text and object
+	var stats = true;		// display text statistics if tenps[] and humids[]
+	
+	if (location.hostname === "localhost" || location.hostname === "" )
+	{
+		//alert("It's a local server!");
+		var simul = 1; //!(document.location.host);	// 'true' if executed from a file.
+	}
+		
+	var history = 1;						// display historical data
+	var scan = 0;							// counts every time data are fetched
+	var d = new Date();						// d and rev are needed for file Rev
+	var rev = d.getTime();
+	
+	var jtext = '{"time":"19:49:02","sensor":"DHU21D","count":38,"tempF":63.3,"humid":57,"npast":22,\
+	"temps": [66.73,66.73,66.73,66.71,66.71,66.71,66.67,66.84,66.76,66.76,66.76,66.78,66.79,66.79,66.80,66.83,66.84,66.81,66.79,66.79,66.77,66.78,66.80,66.75],\
+	"humids":[36.28,36.17,36.24,36.35,36.19,36.33,36.40,36.34,36.37,36.22,36.12,35.97,36.01,35.97,35.76,35.98,35.88,36.04,35.90,35.92,35.97,36.01,35.95,36.02]}';
+	
+	
+	function fetchData() 
+	{
+		if( simul>0 )
+			processJS( jtext );
+		else
+		{
+			var xmlhttp = new XMLHttpRequest();
+			xmlhttp.onreadystatechange = function() 
+			{
+				if (this.readyState == 4 && this.status == 200) 
+				{
+					jtext = this.responseText;
+					processJS( jtext );	
+				}	
+			};
+			xmlhttp.open("GET","fetch1.php?id=IOT3&a=" + rev,true);
+			rev++;
+			xmlhttp.send();
+		}
+	}
+	
+	function processJS( resp )
+	{
+		if( debug ) 
+			dom("dataId", 		resp );
+		
+		dom("scanId", 		scan++ );
+		var jsn = JSON.parse( resp );	
+		
+		if( debug )
+			dom( "jsonId",	JSON.stringify(jsn));
+		dom( "counterId",	jsn.count);
+		dom( "timeId",		jsn.time);
+		dom( "sensorId",	jsn.sensor);
+		dom( "tempFId",		jsn.tempF + "&deg;F");
+		dom( "humidId",		jsn.humid + "%");
+
+		if( simul > 0 )					// modify if simulation data
+		{		
+			jsn.temps[5] = Math.round( Math.random()*2+65 );
+			jsn.humids[8] = Math.round( Math.random()*3+36 );
+		}
+		
+		var count = jsn.npast;
+		dom("npastId", count);
+		if( (count < 0) || (count == "") )
+			count = 0;
+		
+		if( stats )
+		{
+			var line="<td>.</td>";
+			for( i=0; i<count; i++ )
+				line += "<td>"+i+"</td>";
+			dom( "countId", line);
+			
+			line="<td>Past Temp</td>";
+			for( i=0; i<count; i++ )
+				line += "<td>"+jsn.temps[i]+"</td>";
+			dom( "pastFId", line);
+			
+			line="<td>Past Humid</td>";
+			for( i=0; i<count; i++ )
+				line += "<td>"+jsn.humids[i]+"</td>";
+			dom( "pastHId", line );
+		}
+		for( i=0; i<count; i++ )
+		{
+			config.data.labels[i]=i;
+			config.data.datasets[0].data[i]=jsn.temps[i];
+			config.data.datasets[1].data[i]=jsn.humids[i];			
+		}
+		window.myLine.update();
+
+	}
+	function dom( element, value )
+	{
+		document.getElementById( element ).innerHTML = value;
+	}
+	
+	function toggleDebug()
+	{
+		var x = document.getElementById("dataId");
+		var y = document.getElementById("jsonId");
+	
+		if( debug )
+		{
+			debug = false;
+			// Works OK
+			//document.getElementById('debugId').style.backgroundColor = 'Red';
+			dom("btninfoId","Debug is OFF");
+			document.getElementById("debugId").className = 'button-off';
+			x.style.display = "none";
+			y.style.display = "none";
+		}
+		else
+		{
+			debug = true;
+			//document.getElementById('debugId') = #100; .className = button-on;
+			//document.getElementById('debugId').style.backgroundColor = 'Blue';
+			document.getElementById("debugId").className ='button-on';
+			dom("btninfoId","Debug is ON");
+			y.style.display = "block";
+			y.style.display = "block";
+		}
+	}
+
+	function toggleStats()
+	{
+		var x = document.getElementById("statableId");
+		if( stats )
+		{
+			stats = false;
+			// Works OK
+			//document.getElementById('debugId').style.backgroundColor = 'Red';
+			dom("btninfoId","Stats are OFF");
+			document.getElementById("statsId").className = 'button-off';
+			x.style.display = "none";
+		}
+		else
+		{
+			stats = true;
+			//document.getElementById('debugId') = #100; .className = button-on;
+			//document.getElementById('debugId').style.backgroundColor = 'Blue';
+			document.getElementById("statsId").className ='button-on';
+			dom("btninfoId","Stats are ON");
+			x.style.display = "block";
+		}
+	}	
+	
+	window.chartColors = 
+	{
+		red: 'rgb(255, 99, 132)',
+		orange: 'rgb(255, 159, 64)',
+		yellow: 'rgb(255, 205, 86)',
+		green: 'rgb(75, 192, 192)',
+		blue: 'rgb(54, 162, 235)',
+		purple: 'rgb(153, 102, 255)',
+		grey: 'rgb(201, 203, 207)'
+	};
+
+	randomScalingFactor = function() 
+	{
+		return Math.round( dorand(-100, 100) );
+	};
+	var seed = 100;
+	dorand = function(min, max) 
+	{			
+			min = min === undefined ? 0 : min;
+			max = max === undefined ? 1 : max;
+			seed = (seed * 9301 + 49297) % 233280;
+			return min + (seed / 233280) * (max - min);
+	}
+	
+		var config = {
+			type: 'line',
+			data: 
+			{
+				labels: ['(1)', '(F)', 'M', 'A', 'M', 'J', 'J','(1)', '(F)', 'M', 'A', 'M', 'J', 'J','(1)', '(F)', 'M', 'A', 'M', 'J', 'J'],
+				datasets: 
+				[
+					{					
+						label: 'Temperature',
+						//backgroundColor: window.chartColors.red,
+						borderColor: window.chartColors.red,
+						data: [	10, 30, 2, 15, 10, 6, 20 ],
+						fill: false,
+						
+						yAxisID: 'Temp' // gives an error!
+					},
+					{					
+						label: 'Humidity',
+						//backgroundColor: window.chartColors.red,
+						borderColor: window.chartColors.blue,
+						data: [	30, 2, 15, 10, 6, 20, 5	],
+						fill: false,
+						yAxisID: 'RH'
+					}
+				]
+			},
+			options:
+			{
+				scales: 
+				{
+					yAxes: 
+					[ 
+						{
+							id: 'Temp',
+							position: 'left',
+							//type: 'Temp', // gives an error
+							//ticks: {suggestedMin: 45, suggestedMax: 75} 
+						},
+						{
+							id: 'RH',
+							position: 'right',
+							//type: 'RH',
+							//ticks: {suggestedMin: 20, suggestedMax: 60} 
+						}						
+					]
+				}
+			}
+		};
+		
+		
+/*		window.onload = function() 
+		{
+			var ctx = document.getElementById('canvas').getContext('2d');
+			window.myLine = new Chart(ctx, config);
+			
+			setInterval( fetchData, 5000);
+		};
+*/
+		function startup() 
+		{
+			var ctx = document.getElementById('canvas').getContext('2d');
+			//window.myLine = new Chart(ctx, config);
+			myLine = new Chart(ctx, config);
+			
+			setInterval( fetchData, 5000);
+		};
+/*
+		document.getElementById('randomizeData').addEventListener('click', function() 
+		{
+			config.data.datasets.forEach(function(dataset) 
+			{
+				dataset.data = dataset.data.map(function() 
+				{
+					return randomScalingFactor();
+				});
+
+			});
+			window.myLine.update();
+		});
+*/
+function dispStore()
+{
+	var saved = localStorage.getItem("snap1");
+	//config = localStorage.getItem("snap1");
+	document.getElementById('btninfoId').innerHTML = "now is: "+rev+" found: "+saved;
+	//window.myLine.update();
+}
+function saveStore()
+{
+	localStorage.setItem("snap1", "time is: "+ rev );
+	//localStorage.setItem("snap1", config );
+	document.getElementById('btninfoId').innerHTML = "SAVED";
+}
+</script>
+</head>
+
+<body onload="startup();">
+<!-- <body> -->
+
+	<h1>Temperature and Humidity Display</h1>
+	<button onclick="saveStore();">SNAP</button>
+	<button onclick="dispStore();">SHOW</button>
+	
+	<button type="button" class="button-on" onclick="fetchData()">Click Me!</button> 
+	<button type="button" id="debugId" class="button-on" onclick="toggleDebug();">Toggle Debug</button>
+	<button type="button" id="statsId" class="button-on" onclick="toggleStats();">Toggle Stats</button>
+	<div id="btninfoId"></div>
+
+	<br/>
+	<div id="dataId"><b>Fetched data will be displayed here...</b></div>
+	<div id="jsonId"><b>JSON data will be displayed here...</b></div>
+	
+	<br/>
+
+	<table class="midCL">
+		<tr><td class="nameCL">JS SCAN:</td>	<td id="scanId" 	class="valueCL">...		</td></tr>
+		<tr><td class="nameCL">SENSOR: </td>	<td id="sensorId"	class="valueCL">...		</td></tr>
+		<tr><td class="nameCL">TIME:   </td>	<td id="timeId" 	class="valueCL">...		</td></tr>
+		<tr><td class="nameCL">COUNT:  </td>	<td id="counterId"	class="valueCL">...		</td></tr>
+		<tr><td class="nameCL">TEMPERATURE: </td><td id="tempFId"	class="valueCL">...	</td></tr>
+		<tr><td class="nameCL">HUMIDITY:</td>    <td id="humidId"	class="valueCL">...	</td></tr>
+		<tr><td class="nameCL">STATS COUNT:</td>    <td id="npastId"	class="valueCL">...	</td></tr>
+	</table>
+	
+	<table id="statableId" class="midCL">
+		<tr id="countId">...</tr>
+		<tr id="pastFId">...</tr>
+		<tr id="pastHId">...</tr>
+	</table>
+	
+	<br/>	
+	<div style="width:75%;">
+		<canvas id="canvas"></canvas>
+	</div>
+	
+	
+	<!-- <br> -->
+	<!-- <br> -->
+	<!-- <button id="randomizeData">Randomize Data</button> -->
+	
+
+	
+</body>
+</html>
